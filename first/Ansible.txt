@@ -1,0 +1,753 @@
+Install ansible on controller:
+
+yum install epel-release -y
+
+yum install ansible -y
+
+Controller:
+
+cd /etc/ansible
+
+more ansible.cfg
+
+ssh-keygen
+
+(copy the public key)
+
+
+centos node:
+
+useradd ansible  (useradd -m ansible for ubuntu)
+
+
+    6  mkdir .ssh
+    7  vi .ssh/authorized_keys (paste public key here)
+    8  chmod -R 700 .ssh/
+    9  ls -l
+   10  ls -l .ssh/authorized_keys
+   11  history
+
+controller:
+
+echo > /etc/ansible/hosts
+
+vi /etc/ansible/hosts  (write this: <centosnode ip> ansible_ssh_user=ansible)
+
+ansible all -m ping
+
+(similarly, ping ubuntu node as well)
+
+ansible all -m setup (gives info about remote machine connected via ssh(remote))
+
+ansible all -a "command" (to run any particular command on remote)
+
+anisble <remote IP> <command> (to execute ansible command only on a particular remote)
+
+hosts file for grouping:
+[centos]
+3.0.57.8 ansible_ssh_user=ansible
+[ubuntu]
+18.138.58.122 ansible_ssh_user=ansible
+[linux]
+3.0.57.8 ansible_ssh_user=ansible
+18.138.58.122 ansible_ssh_user=ansib
+
+(now, instead of providing ip, we can use group name)
+
+ansible "centos:ubuntu" -a "free" (for both)
+
+ansible 'linux:&ubuntu' -a "free" (for groups common to both linux and ubuntu)
+
+on centos node and ubuntu node:
+
+visudo (run as a root user -> change under "Allow root to run any commands anywhere" -> add ansible to that list with NOPASSWD: ALL in third column)
+(for ubuntu use export EDITOR="vim" before executing visudo)
+(this is to run sudo commands from ansible controller)
+
+on controller:
+
+ansible linux -b -a "reboot"
+
+ansible linux -a "uptime" (observe that it rebooted by referring to the uptime)
+
+for windows node:
+
+(in windows power shell as administrator)
+
+$url = "https://raw.githubusercontent.com/ansible/ansible/devel/examples/scripts/ConfigureRemotingForAnsible.ps1"
+
+$file = "$env:temp\ConfigureRemotingForAnsible.ps1"
+
+(New-Object -TypeName System.Net.WebClient).DownloadFile($url, $file)
+
+powershell.exe -ExecutionPolicy ByPass -File $file
+
+winrm enumerate winrm/config/Listener
+
+In controller:
+
+yum install python-pip
+
+pip install pip==19.3.1
+
+pip install pywinrm --ignore-installed
+
+edit hosts file:
+
+[centos]
+54.255.195.245 ansible_ssh_user=ansible
+[ubuntu]
+13.250.64.53 ansible_ssh_user=ansible
+[linux]
+54.255.195.245  ansible_ssh_user=ansible
+13.250.64.53  ansible_ssh_user=ansible
+[win]
+52.77.229.215
+[win:vars]
+ansible_user=Administrator
+ansible_password=5G*@RYlm$6Rjzkg$CLxvFluV=@V!lJx;
+ansible_connection=winrm
+ansible_winrm_server_cert_validation=ignore
+
+ansible win -m win_shell -a "date"
+
+cd /etc/ansible
+
+vi ansible.cfg  (remove comment under #root = remote and replace remote with ansible)
+
+now edit hosts file (remove ansible_user_ssh=ansible for all remote machines and you can connect without specifying this)
+
+-------------------------------------------------------------------------------------------------
+
+PLAYBOOKS:
+
+mkdir playbooks
+
+cd playbooks
+
+vi filecreate.yaml
+
+YAML:
+
+---
+- hosts: linux
+  tasks:
+  - name: Create File
+    file:
+      path: /home/ansible/testfile
+      state: touch
+
+ansible-playbook filecreate.yaml
+
+--------------------------------------------------------------------------------------
+
+CREATE DIRECTORY YAML:
+
+---
+- hosts: linux
+  tasks:
+  - name: Create File
+    file:
+      path: /home/ansible/testfile
+      state: touch
+  - name: Create Directory
+    file:
+      path: /home/ansible/testdir
+      state: directory
+
+CREATE DIRECTORY IN WINDOWS YAML:
+
+cat winfolder.yaml
+---
+- hosts: win
+  tasks:
+  - name: Create Direcorty in windows
+    win_file:
+      path: 'c:\temp'
+      state: directory
+
+INSTALL AND START APACHE SERVICE YAML:
+
+---
+- hosts: linux
+  become: yes
+  tasks:
+  - name: Install apache on Centos
+    yum:
+      name: httpd
+      update_cache: yes
+      state: latest
+    when: ansible_os_family == "RedHat"
+  - name: Install apache on ubuntu
+    apt:
+      name: apache2
+      update_cache: yes
+      state: latest
+    when: ansible_os_family == "Debian"
+  - name: Start apache on centos
+    service:
+      name: httpd
+      enabled: yes
+      state: started
+    when: ansible_os_family == "RedHat"
+  - name: Start apache on ubuntu
+    service:
+      name: apache2
+      enabled: yes
+      state: started
+    when: ansible_os_family == "Debian"
+
+--------------------------------------------------------------------------------------------
+
+TEMPLATES:
+
+---
+- hosts: linux
+  become: yes
+  tasks:
+  - name: Create index.html
+    template:
+      src: /root/playbooks/index.html.j2
+      dest: /var/www/html/index.html
+
+
+index.html.j2:
+
+<html><center>
+<h1> This system is running {{ ansible_os_family }}, and its hostname is :</h1>
+<h2> {{ ansible_hostname }} </h2>
+</center></html>
+
+---------------------------------------------------------------------------------------------
+
+HANDLERS:
+
+---
+- hosts: linux
+  become: yes
+  tasks:
+  - name: Start apache on centos
+    service:
+      name: httpd
+      enabled: yes
+      state: started
+    when: ansible_os_family == "RedHat"
+  - name: Start apache on ubuntu
+    service:
+      name: apache2
+      enabled: yes
+      state: started
+    when: ansible_os_family == "Debian"
+  - name: Create index.html on centos
+    template:
+      src: /root/playbooks/index.html.j2
+      dest: /var/www/html/index.html
+    notify: restart httpd
+    when: ansible_os_family == "RedHat"
+  - name: Create index.html on ubuntu
+    template:
+      src: /root/playbooks/index.html.j2
+      dest: /var/www/html/index.html
+    notify: restart apache2
+    when: ansible_os_family == "Debian"
+  handlers:
+  - name: restart httpd
+    service:
+      name: httpd
+  - name: restart apache2
+    service:
+      name: apache2
+      state: restart
+
+--------------------------------------------------------------------------------------------
+
+CHOCOLATEY INSTALL ON WIDOWS YAML:
+
+---
+- hosts: win
+  tasks:
+  - name: Install Notepadplusplus
+    win_chocolatey:
+      name: notepadplusplus
+      state: present
+
+
+UNINSTALL:
+
+---
+- hosts: win
+  tasks:
+  - name: Install Notepadplusplus
+    win_chocolatey:
+      name: notepadplusplus.install
+      state: absent
+
+----------------------------------------------------------------------------------------------
+
+LOOPS:
+
+---
+- hosts: linux
+  tasks:
+  - name: create multiple directory
+    file:
+      path: "{{ item }}"
+      state: directory
+    with_items:
+    - /home/ansible/folder1
+    - /home/ansible/folder2
+    - /home/ansible/folder3
+    - /home/ansible/folder4
+
+-----------------------------------------------------------------------------------------------
+
+NESTED LOOPS:
+
+---
+- hosts: centos
+  tasks:
+  - name: Execute Nested Loop
+    debug: msg=" ansible {{ item[0] }} on day {{ item [1] }} is {{ item [2] }}"
+    with_nested:
+    - [ 'training', 'lab', 'handson' ]
+    - [ 1,2,3 ]
+    - [ 'good', 'bad', 'great']
+
+------------------------------------------------------------------------------------------------
+
+REGISTERING LOGS:
+
+---
+- hosts: linux
+  tasks:
+  - name: print command output
+    command: echo "i am in ansible training"
+    register: cmdoutput
+  - debug: msg="standard output={{cmdoutput.stdout}}"
+  - debug: msg="standard error={{cmdoutput.stderr}}"
+
+IF ERROR IN COMMAND:
+
+---
+- hosts: linux
+  ignore_errors: yes
+  tasks:
+  - name: print command output
+    command: ls -l test.txt
+    register: cmdoutput
+  - debug: msg="standard output={{cmdoutput.stdout}}"
+  - debug: msg="standard error={{cmdoutput.stderr}}"
+
+-------------------------------------------------------------------------------------------------
+
+CUSTOM LOGS:
+
+---
+- hosts: linux
+  tasks:
+  - name: print file content
+    command: cat testfile
+    register: filecontent
+  - debug: msg="File is empty"
+    when: filecontent.stdout==""
+  - debug: msg="File is not empty"
+    when: filecontent.stdout!=""
+
+----------------------------------------------------------------------------------------------------
+
+LINEINFILE:
+
+---
+- hosts: linux
+  tasks:
+  - name: create file
+    file:
+      path: /home/ansible/hostname.conf
+      state: touch
+  - name: add a line if its not prsent
+    lineinfile:
+      dest: /home/ansible/hostname.conf
+      line: Hostname={{ ansible_hostname }}
+      state: present
+
+----------------------------------------------------------------------------------------------------
+
+TO  INSTALL,START AND CHANGE PermitRootLogin from yes to no IN SSH:
+
+---
+- hosts: ubuntu
+  become: yes
+  tasks:
+  - name: Install ssh on ubuntu
+    apt:
+      name: openssh-server
+      update_cache: yes
+      state: latest
+  - name: Start ssh
+    command: systemctl start ssh
+  - name: changing permissions for root
+    lineinfile:
+      dest: /etc/ssh/sshd_config
+      regexp: 'PermitRootLogin yes'
+      line: 'PermitRootLogin no'
+
+----------------------------------------------------------------------------------------------------
+
+TO RUN AN APPLICATION/SHELL SCRIPT ON REMOTE:
+
+---
+- hosts: linux
+  tasks:
+  - name: upload file to traget server
+    copy:
+      src: /root/playbooks/program.sh
+      dest: /home/ansible/program.sh
+      mode: 0755
+  - name: Modify content of the file
+    lineinfile:
+      dest: /home/ansible/program.sh
+      regexp: '^HOST='
+      line: HOST={{ ansible_hostname }}
+      state: present
+  - name: run the script
+    shell: /home/ansible/program.sh
+    register: output
+  - debug: msg=" output is {{ output.stdout }}"
+
+-----------------------------------------------------------------------------------------------
+
+TAGS:
+
+mariadb.yaml:
+
+---
+- hosts: centos
+  become: yes
+  tasks:
+  - name: install mariadb server
+    yum:
+      name: mariadb-server
+      state: latest
+    tags:
+    - install
+    - all
+  - name: start mariadb
+    service:
+      name: mariadb
+      state: started
+    tags:
+    - start
+    - all
+  - name: create user
+    user:
+      name: taguser
+    tags:
+    - user
+    - all
+
+ansible-playbook maridb.yaml --tags "start"  (to run only start mariadb task in the above playbook)(use , to give multiple tags)
+
+ansible-playbook mariadbwithtags.yaml --skip-tags "install" (to skip install tag)
+
+ansible-playbook maridb.yaml --tags "all" --skip-tags "install" (runs all tasks with tag "all" but skips "install")
+
+----------------------------------------------------------------------------------------------------
+
+VARIABLES:
+
+---
+- hosts: linux
+  vars:
+    test: welcome to ansible training
+  tasks:
+  - name: print variable
+    debug:
+      msg: " {{ test }} "
+
+LIST VARIABLES:
+
+---
+- hosts: linux
+  vars:
+    teams:
+      - csk
+      - rcb
+      - mi
+      - srh
+  tasks:
+  - name: print list variable
+    debug:
+      msg: "{{ teams[0] }}"
+
+(prints csk)
+
+LIST VARIABLES WITH LOOP:
+
+---
+- hosts: linux
+  vars:
+    teams:                                    (can define like teams: [csk, rcb, mi, srh] also)
+      - csk
+      - rcb
+      - mi
+      - srh
+  tasks:
+  - name: print list variable
+    debug:
+      msg: "{{ item }}"
+    with_items:
+      - "{{ teams }}"
+
+DICTIONARY VARIABLE:
+
+---
+- hosts: linux
+  vars:
+    training:
+      topic: ansible
+      trainer: sathish
+      mode: online
+      lab: aws
+  tasks:
+  - name: print dict variable
+    debug:
+      msg: "{{ training['topic'] }}"  (should be within single quotes)
+  - name: print another way
+    debug:
+      msg: "{{ training.topic }}"
+
+DICTIONARY VARIABLE WITH LOOP:
+
+---
+- hosts: linux
+  vars:
+    training:
+      topic: ansible
+      trainer: sathish
+      mode: online
+      lab: aws
+  tasks:
+  - name: print dict variable
+    debug:
+      msg: "key is {{ item.key }} and value is {{ item.value }}"
+    with_dict: "{{ training }}"
+
+HOST VARIABLES:
+
+(In /etc/ansible/hosts file, after the IP mention the host variables, here for ex: http_port=80)
+
+---
+- hosts: linux
+  tasks:
+  - name: print host variable
+    debug:
+      msg: "http port is {{ http_port }}"  (outputs http port is 80)
+
+HOST GROUP VARIABLES:
+
+HOSTS FILE:
+
+[centos]
+3.0.148.110
+[ubuntu]
+54.251.178.178
+[linux]
+3.0.148.110 http_port=80
+54.251.178.178 http_port=81
+[linux:vars]                                         --> (group variable)
+port=80
+
+YAML:
+
+- hosts: linux
+  tasks:
+  - name: print host variable
+    debug:
+      msg: "http port is {{ http_port }}"
+  - name: print host group vraiable
+    debug:
+      msg: "host group variable  is {{ port }}"
+
+RUNTIME VARIABLES:
+
+useradd.yaml:
+
+---
+- hosts: linux
+  become: yes
+  tasks:
+  - name: create user
+    user:
+      name: "{{ username }}"
+      state: present
+      shell: /bin/bash
+
+ansible-playbook useradd.yaml --extra-vars "username=test"    (to pass multiple runtime vars, use space delimiter)
+
+NOTE: (Check variable precedence if there is a common variable defined at multiple places)
+
+
+-------------------------------------------------------------------------------------------------------------------
+
+
+CUSTOM FACTS:
+
+datetime.sh.j2:
+
+#!/bin/bash
+DATE=`date`
+echo "{\"date\" : \"${DATE}\"}"
+
+YAML:
+
+---
+- hosts: linux
+  become: yes
+  tasks:
+  - name: create facts directory
+    file:
+      path: /etc/ansible/facts.d
+      recurse: yes                          ---> (create the parent directory if not available)
+      state: directory
+  - name: create the fact script using template
+    template:
+      src: /root/playbooks/datetime.sh.j2
+      dest: /etc/ansible/facts.d/date_time.fact
+      mode: 0755
+  - name: reload ansible fact
+    setup: filter=ansible_local
+  - name: print the local fact
+    debug:
+      msg: " custom fact is {{ ansible_local.date_time }}"
+
+
+ansible linux -m setup -a "filter=ansible_local"          (after running the above playbook, it shows the custom fact)
+
+-------------------------------------------------------------------------------------------------------------------------
+
+ANSIBLE VAULT:
+
+ansible-vault create sensitive.yaml
+
+(give password and edit the file)
+
+YAML:
+
+---
+- hosts: linux
+  tasks:
+  - name: create sensitive file
+    copy:
+      content: "This file containes sensitive information"
+      dest: /home/ansible/sensitive.txt
+
+ansible-playbook sensitive.yaml --ask-vault-pass
+
+ansible-vault view sensitive.yaml              (to view playbook)
+
+ansible-vault edit sensitive.yaml              (to edit playbook)
+
+ansible-vault decrypt sensitive.yaml           (to decrypt playbook)
+
+ansible-vault encrypt sensitive.yaml           (to encrypt playbook)
+
+ansible-vault rekey sensitive.yaml             (to change the password of the vault)
+
+-------------------------------------------------------------------------------------------------------------------
+
+ROLES:
+
+(PUBLICLY AVAILABLE ROLES CAN BE SEARCHED ON ANSIBLE GALAXY WEBSITE)
+
+cd /etc/anisble/roles
+
+ansible-galaxy init /etc/ansible/roles/apache --offline
+
+cat apache/tasks/install.yaml
+---
+- name: install apache
+  yum:
+    name: httpd
+    state: latest
+
+cat apache/tasks/configure.yaml
+---
+- name: copy index.html
+  copy:
+    src: files/index.html
+    dest: /var/www/html/index.html
+  notify:
+  - restart apache
+
+cat apache/tasks/service.yaml
+---
+- name: start and enable apache
+  service:
+    name: httpd
+    state: started
+    enabled: yes
+
+cat apache/tasks/main.yml
+---
+# tasks file for /etc/ansible/roles/apache
+- import_tasks: install.yaml
+- import_tasks: configure.yaml
+- import_tasks: service.yaml
+
+cat apache/files/index.html
+Home page for apache role
+
+ cat apache/handlers/main.yml
+---
+# handlers file for /etc/ansible/roles/apache
+- name: restart apache
+  service:
+    name: httpd
+    state: restarted
+
+cd ~
+
+cd playbooks/
+
+cat apacherole.yaml
+---
+- hosts: centos
+  become: yes
+  roles:
+  - apache
+
+ansible-playbook apacherole.yaml
+
+-----------------------------------------------------------------------------------------------------------
+
+MOLECULE:
+
+  350  yum update
+  351  yum install -y epel-release
+  352  yum groups install -y "Development Tools"
+  353  yum-config-manager --add-repo https://download.docker.com/linux/centos/docker-ce.repo
+  354  yum -y install docker-ce
+  355  systemctl enable docker && systemctl start docker
+  356  clear
+  357  pip install -U setup tools
+  358  pip install -U setuptools
+  359  pip install wheel pytest pytest-xdist testinfra
+  361  pip uninstall ansible
+  362  pip install ansible
+  363  pip install molecule docker --ignore-installed
+
+------------------------------------------------------------------------------------------------------------------
+
+
+
+
+
+
+
+
+
+
+
+
+
+

@@ -1,0 +1,38 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  creationTimestamp: null
+  labels:
+    app: my-app
+  name: my-app
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: my-app
+  strategy: {}
+  template:
+    metadata:
+      creationTimestamp: null
+      labels:
+        app: my-app
+    spec:
+      containers:
+      - image: manidockermka/my-app:30
+        name: my-app
+        ports:
+        - containerPort: 3000
+          hostPort: 3000
+        env:
+        - name: MONGO_USERNAME
+          value: admin
+        - name: MONGO_PASS
+          value: password
+        - name: MONGO_HOSTNAME
+          value: mongo-7b5865ff5-2p9t6.mongo.default
+        - name: MONGO_PORT
+          value: "27017"
+        - name: MONGO_DATABSE
+          value: pois
+        resources: {}
+status: {}

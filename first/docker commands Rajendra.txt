@@ -1,0 +1,45 @@
+
+--------------------docker commit-----------------------------------------------------------
+   64  docker save rajendrait99/infinite2:1.0 -o infinite.tar
+   65  ls
+   66  docker images
+   67  docker rmi 04d1c986ca5a
+   68  docker images
+   69  ls
+   70  docker load -i infinite.tar
+   71  docker images
+   72  docker ps -a
+   73  docker run -d --name first -p 8000:8080 infinite2:1.0
+   74  docker run -d --name first -p 8000:8080 rajendrait99/infinite2:1.0
+   75  docker ps
+   76  docker logs first
+   77  docker exec -it first bash
+   78  docker ps
+   79  docker stop first
+   80  docker rm first
+   81  docker run -d --name first -p 8000:8080 rajendrait99/infinite2:1.0
+   82  docker exec -it first bash
+   83  docker ps
+   84  docker commit first rajendrait99/infinite2:1.0
+   85  docker stop first
+   86  docker rm first
+   87  docker run -d --name first -p 8000:8080 rajendrait99/infinite2:1.0
+   88  docker exec -it first bash
+   89  history
+
+------------------docker networking---------------------------------------------
+
+  112  docker network ls
+  113  docker network -h
+  114  docker network create mynet --subnet 192.168.0.0/16
+  115  docker network ls
+  116  docker network inspect mynet
+  117  ifconfig
+  118  docker run -d --name third -p 8002:8080 --network mynet rajendrait99/infinite2:1.0
+  119  ifconfig
+  120  docker network inspect mynet
+  121  docker ps
+  122  docker network -h
+  123  docker network connect mynet second
+  124  docker exec -it second bash
+  125  history

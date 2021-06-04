@@ -1,0 +1,183 @@
+SYSTEM VARIABLES:
+
+1. $BASH - gives path to the shell
+2. $BASH_VERSION - obvious
+3. $HOME - gives home directory
+4. $PWD - obvious
+.... and so on, search for more
+
+-------------------------------------------------------
+
+TAKING INPUT FROM USER:
+
+read -p 'Enter name: ' name
+read -sp 'Enter password: ' pass  # (-s flag for hiding user entered text)
+echo username is $name
+
+TAKING INPUT AS AN ARRAY
+
+read -a 'Enter names: ' names
+echo "Names are ${names[0]}, ${names[1]}, ${names[2]}"  # (double quotes mandatory when you have text to print and you are referencing from an array)
+
+NOTE: If you don't specify any variable after read, by default the data is stored in a system variable calle $REPLY
+
+
+-------------------------------------------------------
+
+PASSING COMMAND LINE ARGUMENTS:
+
+echo $0 $1 $2  # ($0 is filename, $1 is first argument and so on)
+
+args = ("$@")  # (to store command line args as an array)
+
+echo ${args[0]} ${args[1]} ${args[2]}  # (same as echo $1 $2 $3)
+
+# or
+
+echo $@ # (to print all command line args)
+
+echo $# # (to pring the no. of command line args)
+
+
+-------------------------------------------------------
+
+IF STATEMENT:
+
+if --> then --> elif --> elif ....--> else --> fi  
+ex: 
+value=10                         # (Note: there should be no space while assigning) 
+if [ $value -ge 10 ]             # (Note: there should be a space right after [ and right before ] )
+then
+statements
+fi
+
+INTEGER COMPARISON OPERATORS:
+
+-eq
+-ne
+-gt
+-ge
+-lt
+-le
+
+STRING COMPARISON OPERATORS:
+
+= for comparing equality
+== for comparing equality
+!= obvious
+<  ASCII alphabetical comparison for less than (NOTE: use [[ condition ]] for this operator)
+>  similarly for greater than
+-z to check if string is null i.e, zero length
+
+-------------------------------------------------------
+
+FILE TEST OPERATORS:
+
+echo -e "Enter the filename: /c"  # (/c is to keep the cursor in the same line and -e is to interpret the escape character /c)
+read filename
+
+if [ -e $filename]   # (Note: we can use -f to check explicitly if there's a FILE called $filename and similarly -d for directory, 
+                              -s to check if the file is not empty, -r, -w, -x to check if the file has the respective permissions)
+then
+   echo "$filename exists"
+else
+   echo "$filename doesn't exist"
+fi
+
+-------------------------------------------------------
+
+TO APPEND TEXT AT THE END OF A FILE:
+
+echo -e "Enter the filename: /c"  
+read filename
+
+if [ -e $filename]   
+then
+   if [ -w $filename ]
+   then 
+     echo "Write some text to append, ctrl+d to quit"        # (ctrl+d is used to exit out of cat command)
+     cat >> $filename                                        # (>> is used to append rather than overwriting as done by >)
+   else
+     echo "File doesn't have write permissions"
+   fi
+else
+   echo "$filename doesn't exist"
+fi
+
+-------------------------------------------------------
+
+LOGICAL OPERATORS:
+
+ex: if [ condition1 ] && [ condition2 ]
+
+or  if [ condition1 -a condition2 ]   # (similarly -o for OR)
+
+or  if [[ condition1 && condition2 ]
+
+if [ ! condition ] # (not operator)
+
+-------------------------------------------------------
+
+ARITHMETIC OPERATIONS:
+
+ex:
+
+num1=10
+num2=4
+
+echo $((num1 + num2)) 
+similarly, we can do -,*,/,%
+
+alternate way of evaluating arithmetic operations:
+
+echo $(expr $num1 + $num2)
+
+NOTE: for *, we need to escape it i.e, echo $(expr $num1 \* $num2)
+
+-------------------------------------------------------
+
+FLOAT OPERATIONS IN BASH (bc command):
+
+bc is a basic calculator in linux (give man bc to understand more about it)
+
+num1=10.3
+num2=4.2
+
+echo "10.3+4.2" | bc
+echo "scale=2;10.3/4.2" | bc  # (scale is to set the number of precision points after decimal)
+echo "$num1+$num2" | bc
+echo "scale=3;sqrt($num1)" | bc
+
+-------------------------------------------------------
+
+CASE STATEMENT:
+
+ex:
+
+vehicle=$1
+
+case $vehicle in
+  "car" )
+     statement;;
+  "van" )
+     statement;;
+  * )
+     statement;;
+esac
+
+ex:
+
+value=$1
+
+case $value in
+  [a-z] )
+     statement;;
+  [A-Z] )
+     statement;;
+  [0-9] )
+     statement;;
+  ? )                      # (any character)
+     statement;;
+  * )                      # (any string)
+     statement;; 
+esac
